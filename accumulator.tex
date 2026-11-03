@@ -66,21 +66,79 @@ Single paragraph stating as specifically and as quantitatively as possible the p
 
 
 \section{Introduction}
+\label{sec:intro}
+% ~1 page.
+% - Data rates of modern detectors vs storage: Jungfrau 4M 16 GB/s \cite{Kieffer2025},
+%   CITIUS 2.3 PB/day \cite{Nishino2026}.
+% - Azimuthal integration as the standard reduction step \cite{Ashiotis2015,Kieffer2020}.
+% - History of accumulators in pyFAI: pair of histograms \cite{Kieffer2013a}, merging of images
+%   by summing histograms \cite{Kieffer2013b}, multi-frame summation \cite{Kieffer2020},
+%   (Omega, Omega2, V, VV) with an approximate merge \cite{Kieffer2025}, proposal to store the
+%   partial sums \cite[Appendix B]{Kieffer2022}.
+% - Problem: averaging frames and integrating do not commute; merging integrated curves is wrong
+%   (100 + 1 frames example of \citeasnoun{Kieffer2022}).
+% - Contributions: (i) exact merge with the azimuthal error model (extra term C);
+%   (ii) store accumulators instead of images; (iii) quality metrics from accumulators.
 
 \section{Mathematical developments}
+\label{sec:math}
 
-\subsection{Error propagation in the formalism of \citeasnoun[Schreiber2018]}
+\subsection{Azimuthal integration as a weighted mean}
+\label{sec:weighted-mean}
+% signal / normalization, w = c n, x = s/n; std vs sem;
+% poisson vs azimuthal error models; their agreement on counting detectors \cite{Sedlak2017}.
 
-\subsection{Derived metric for data-quality assessement}
+\subsection{Accumulators}
+\label{sec:accumulators}
+% Table of notation adapted from Table 1 of \citeasnoun{Schubert2018}:
+% Omega = sum w, Omega2 = sum w^2, X = sum w x, XX = sum w^2 (x-m)^2, C = sum w^2 (x-m), count.
+
+\subsection[Exact merge in the formalism of Schubert \& Gertz (2018)]{Exact merge in the formalism of \protect\citeasnoun{Schubert2018}}
+\label{sec:merge}
+% Results only: merge formulas for XX and C (derivation in Appendix~\ref{app:derivation}).
+% C cannot be avoided (counter-example in the appendix).
+% Poisson model: VV is a sum of propagated variances, already additive, no C needed.
+% Numerical precision: double-word arithmetic on GPU \cite{Joldes2017}; numerical validation in the
+% pyFAI tutorial notebook (supporting information).
+
+\subsection{Scope of the exact merge: pixel splitting}
+\label{sec:splitting}
+% One paragraph: exact for partitions sharing no pixel (always true for frames / scan points);
+% neighbouring bins only without pixel splitting \cite{Yang2014}; negligible with 1-pixel PSF
+% hybrid detectors (Eiger, Pilatus).
+
+\subsection{Renormalization after integration}
+\label{sec:renorm}
+% One paragraph: signal and normalization are stored separately: I0 / beam-stop diode,
+% flat-field update \cite{Weng2023}, absolute solid angle when merging geometries \cite{Kieffer2020}.
+
+\subsection{Derived metrics for data-quality assessment}
+\label{sec:metrics}
+
 \subsubsection{Spottiness}
 \label{spottiness}
+% S = <(sem/I)^2>^{1/2}, inspired by the coefficient of variation of \citeasnoun{Ingham2014};
+% depends on the effective number of pixels per bin; decreases when frames are merged.
 
 \subsubsection{Textures}
+\label{sec:texture}
+% chi^2 over M azimuthal sectors, expectation M-1; biased if pixels are split between sectors.
+
+\section{Implementation and storage}
+\label{sec:implementation}
+% Condensed.
+% - pyFAI engines (Cython CSR/CSC/LUT/histogram, OpenCL); float8 accumulator layout, C in the
+%   low word of XX in azimuthal mode; version of pyFAI.
+% - HDF5/NeXus layout of the accumulators \cite{Koennecke2015}; compression \cite{Masui2015}.
+% - Table: storage estimate for 10^6 Eiger 4M frames, 4000 x 8 bins (gain x9 to x18).
 
 \section{Applications}
+\label{sec:applications}
+
 \subsection{Saxs}
+\label{sec:saxs}
 The BM29 beamline at the ESRF is an experimental end-station specialized in liquid small angle scattering of proteins or other biological macromolecules.
-The development described in this document are already integrated as part of the dahu pipelines running the online analysis of data of this beamline \cite{kieffer2022}.
+The development described in this document are already integrated as part of the dahu pipelines running the online analysis of data of this beamline \cite{Kieffer2022}.
 \subsubsection{Meniscus detection}
 Bubbles in the capilary or a meniscus (not enough solution) lead to streaks in the scattering image which can easily be spotted by a sharp increase 
 in the level of spottiness (as calculated in \ref{spottiness}). 
@@ -93,13 +151,35 @@ In sample-changer mode, those frames are compared for radiation damage and merge
 In HPLC-mode, frames are compared to the first eigenvector of the SVD decomposition and subsequently merged using accumulators to provide a very good
 measurement of the buffer.
 
+% TODO figures: spottiness vs time with a bubble; uncertainty of the HPLC buffer, before/after.
+
 \subsection{Powder diffraction}
+\label{sec:powder}
 Data collected at material science ID11 were
 - Absence of texture
 - accumulate how long
+% Silicon SRM 640, Eiger2 CdTe 4M (Spotty notebook): chi^2 test for absence of texture;
+% decrease of S with the number of merged frames as a stopping criterion (radiation damage, cost).
 
 \subsection{Texture tomography}
-A dataset of kevlar fibers which was collected at the ID13 beamline at ESRF was integrated and re-binned to a 36x500 
+\label{sec:texture-tomo}
+A dataset of kevlar fibers which was collected at the ID13 beamline at ESRF was integrated and re-binned to a 36x500
+% Integration without pixel splitting; chi^2 map; orientation map from the (110) and (200)
+% reflections \cite{Northolt1974}; storage 3.9 GB (2.0 GB) vs 13.3 GB of raw data.
+
+\section{Discussion and conclusion}
+\label{sec:discussion}
+% Limitations: pixel splitting and detector cross-talk \cite{Yang2014}; the azimuthal model is an
+% upper bound for spotty rings \cite{Kieffer2025}; isotropy assumption.
+% Comparison with sparsification \cite{Kieffer2025}: lossy at the pixel level vs exact per-bin
+% statistics. When raw data should still be kept.
+% Conclusion.
+
+\appendix
+\section{Derivation of the exact merge}
+\label{app:derivation}
+% Re-derivation of Section 3.1 of \citeasnoun{Schubert2018} with squared weights; cross-term;
+% counter-example: same (Omega, Omega2, X, XX), different C, different merged XX.
 
 \begin{acknowledgements}
 The contributions of non-authors etc. should be given here.
@@ -116,7 +196,7 @@ List funding organizations, recipients, grant numbers, etc.
 }
 
 
-\bibliography{iucr} % basename of .bib file
+\bibliography{accumulator} % basename of .bib file
 
 
 \end{document}                    
