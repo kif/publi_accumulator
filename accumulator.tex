@@ -20,7 +20,7 @@
 % Add extra packages here, e.g.
 % \usepackage{myfavouritepackage}
 
-\title{Article title}
+\title{Storing accumulators instead of images: exact merging of azimuthally integrated scattering data with uncertainty propagation}
 
 % Authors and affiliations (uses the standard authblk package):
 % Author affiliations are indicated by lowercase letters in square brackets in the \author macro.
@@ -40,99 +40,40 @@
 % For example:
 % \author[a]{Anne Author\IUCrCemaillink{corrauthor@org.org}\IUCrOrcidlink{xxxx-xxxx-xxxx-xxxx}}
  
-\author[a]{Anne Author\IUCrCemaillink{corrauthor@org.org}\IUCrOrcidlink{xxxx-xxxx-xxxx-xxxx}}%
-\author[b]{Secundus Segunda\IUCrEmaillink{coauthor@org.org}\IUCrOrcidlink{xxxx-xxxx-xxxx-xxxx}\IUCrAufn{Unique note.}}%
-\author[a,b]{Trinity Terzi\IUCrCemaillink{anothercorrauthor@org.org}\IUCrOrcidlink{xxxx-xxxx-xxxx-xxxx}\IUCrAufn{Shared note.}}%
-\author[a,b]{Clover Dufour\IUCrEmaillink{anothercoauthor@org.org}\IUCrAufn[2]{}}
+\author[a]{Jérôme Kieffer\IUCrCemaillink{jerome.kieffer@esrf.fr}\IUCrOrcidlink{0000-0002-0730-6577}}%
+\author[b]{Thomas Vincent\IUCrEmaillink{@esrf.fr}\IUCrOrcidlink{xxxx-xxxx-xxxx-xxxx}}%
+\author[a]{Edgar GUTIERREZ FERNANDEZ\IUCrCemaillink{anothercorrauthor@esrf.fr}\IUCrOrcidlink{xxxx-xxxx-xxxx-xxxx}}%
+\author[a]{Jonathan P. Wright\IUCrEmaillink{anothercoauthor@esrf.fr}}
+\author[a]{Hayden Fisher\IUCrEmaillink{anothercoauthor@esrf.fr}}
+\author[a]{Manfred Burghammer\IUCrEmaillink{anothercoauthor@esrf.fr}}
 
-\affil[a]{Department, Organization, ..., Country }
-\affil[b]{Different Department, Different Organization, ..., Country }
+
+\affil[a]{The European Synchrotron, 72 avenue des Martyrs, 38000 Grenoble, France }
+%\affil[b]{Different Department, Different Organization, ..., Country }
 
 \begin{document} 
 \maketitle 
 
 \begin{synopsis}
-One or two sentences suitable for the Journal contents listing and use in promoting your article via social media, highlighting the findings and significance of your work.
+Mathematical development allowing the reduction of scattering data allowing the quality validation, data merging and re-binning with error propagation. 
 \end{synopsis}
 
 \begin{abstract}
 Single paragraph stating as specifically and as quantitatively as possible the principal results obtained, and providing an indication of the broader significance of the work. The abstract should be capable of being understood on its own without access to the text or figures. 
 \end{abstract}
 
-\keywords{ Three or four key words/phrases separated by semi-colons. }
+\keywords{ pyFAI, Azimuthal integration, accumulator, spottiness, texture, frame averaging}
 
 
-\section{Section title}
+\section{Introduction}
 
-Text text text text text text text text text text text text text text
-text text text text text text text \cite{knuth84,lamport86}.
+\section{Mathematical developments}
 
-\begin{figure}[ht] %
-\label{fig:figure1}
-\begin{center}
-\includegraphics[width=0.5\textwidth]{fig1.png} % NB use pdflatex for non-postscript
-\end{center}
-\caption{Caption \protect\cite{knuth84}} % NB \protect\cite{...} is required in floating figures
-\end{figure}
+\subsection{Error propagation in the formalism of \citeasnoun[Schreiber2018]}
 
-\subsection{Subsection title}
-
-Text text text text text text text text text text text text text text
-text text text text text text text.
-
-\subsubsection{Subsubsection title}
-
-Text text text text text text text text text text text text text text
-text text text text text text text.
-
-
-
-\section{Section title}
-
-Text text text text text text text text text text text text text text
-text text text text text text text.
-
-\subsection{Subsection title}
-
-Text text text text text text text text text text text text text text
-text text text text text text text.
-
-\subsubsection{Subsubsection title}
-
-Text text text text text text text text text text text text text text
-text text text text text text text.
-
-% Basic table 
-
-\begin{table}[ht]
-\caption{Caption to table \protect\cite{lamport86}} % NB \protect\cite{...} is required in floating tables
-\smallskip
-\begin{center}
-\begin{tabular}{llcr}
-\midrule
- HEADING    & FOR        & EACH       & COLUMN     \\
-\midrule
- entry      & entry      & entry      & entry      \\
- entry      & entry      & entry      & entry      \\
- entry      & entry      & entry      & entry      \\
-\end{tabular}
-\end{center}
-\end{table}
-     
-     
-\appendix % if required
-\section{Appendix title}
-
-Text text text text text text text text text text text text text text
-text text text text text text text.
-
-\subsection{Appendix subsection title}
-
-Text text text text text text text text text text text text text text
-text text text text text text text.
-
-\subsubsection{Appendix subsubsection title}
-
+\subsection{Derived metric for quality of data assessement}
+\subsubsection{Spottiness}
+\subsubsection{Textures}
 Text text text text text text text text text text text text text text
 text text text text text text text.
 
@@ -145,7 +86,7 @@ The contributions of non-authors etc. should be given here.
 List funding organizations, recipients, grant numbers, etc.
 \end{funding}
 
-\ConflictsOfInterest{Please declare any conflicts of interest, or declare  that there are no conflicts of interest.
+\ConflictsOfInterest{There are no conflicts of interest.
 }
 
 \DataAvailability{Please state how the data supporting the results reported in your article can be accessed, e.g. within the article, as published supporting material, in repositories, upon request...

@@ -1,0 +1,557 @@
+\documentclass[a4paper,11pt]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{booktabs}
+\usepackage{xurl}
+\usepackage[hidelinks]{hyperref}
+\hypersetup{
+  pdftitle={Integrate once, merge exactly: accumulator-based data reduction for mapping and time-resolved scattering experiments},
+  pdfauthor={Jérôme Kieffer, Edgar Gutiérrez-Fernández, Manfred Burghammer, Jonathan Wright, Loïc Huder, Thomas Vincent (ESRF)},
+  pdfsubject={Exact merge of pre-integrated scattering data with the azimuthal error model},
+}
+
+\newtheorem{proposition}{Proposition}
+\newcommand{\mean}[1]{\widehat{#1}}
+\newcommand{\Om}{\Omega}
+\newcommand{\OmS}{\Omega^{(2)}}
+\newcommand{\D}[2]{D^{#1}_{#2}}
+\newcommand{\AB}{{A\sqcup B}}
+\newcommand{\Ab}{{A\sqcup\{b\}}}
+
+\title{Integrate once, merge exactly: accumulator-based data reduction for mapping and time-resolved scattering experiments}
+\author{Jérôme Kieffer, Edgar Gutiérrez-Fernández, Manfred Burghammer,\\
+Jonathan Wright, Loïc Huder and Thomas Vincent\\[0.5em]
+\normalsize European Synchrotron Radiation Facility (ESRF), Grenoble, France}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+Schubert and Gertz~\cite{SG18} derive single-pass, numerically stable and mergeable formulas for
+the weighted mean and (co-)variance, where the same weights $\omega_i$ are used for the mean and for
+the sum of deviation products. The \texttt{azimuthal} error model of pyFAI weights the mean with
+$\omega_i$ but the deviations with $\omega_i^2$. This note re-derives Section~3 of~\cite{SG18} in this
+setting. A cross-term appears, which vanishes in~\cite{SG18}: an exact merge of two partitions
+requires one additional accumulator per variable, $\D{V}{P} = \sum_{i\in P}\omega_i^2(v_i-\mean{v}_P)$.
+Equation numbers of the form (SG$n$) refer to equation $n$ of~\cite{SG18}.
+The motivation is to store pre-integrated accumulators instead of raw images for maps and time
+series, which saves about one order of magnitude in storage. A simulation validates the approach, and
+two experimental examples are presented: the decrease of the spottiness of a powder pattern with the
+number of merged frames (ID11, ESRF), and the measurement of texture and orientation in a Kevlar fibre
+(ID13, ESRF).
+\end{abstract}
+
+\section{Motivation: saving storage for maps and time series}
+
+In a mapping or time-resolved experiment, all frames are first integrated. The map built from these
+results is used to define regions with equivalent signal, and the frames of each region are then
+combined to improve the statistics. Two workflows are possible:
+\begin{enumerate}
+\item The raw frames are kept. For each region, they are averaged and integrated a second time.
+\item Each frame is integrated once, and the per-bin accumulators are stored in addition to
+  $(q, I, \sigma)$. For each region, the pre-integrated accumulators of the selected frames are merged,
+  without going back to the raw data.
+\end{enumerate}
+
+As an example, consider $10^6$ frames from an Eiger~4M detector ($2167\times2070$ pixels, 32-bit
+integers), integrated in 2D on $4000$ radial $\times$ $8$ azimuthal bins. We assume a compression ratio of
+8 for the raw integer data and of 3 for floating-point data. The accumulators per bin are the weighted
+sum of signal $X_P$, the sum of weights $\Om_P$, the sum of squared weights $\OmS_P$, the pixel count,
+the sum of squared deviations $XX_P$ and the new accumulator $\D{X}{P}$ introduced in
+Section~\ref{sec:notation}.
+
+\begin{table}[ht]
+\centering
+\small
+\begin{tabular}{lrrr}
+\toprule
+Stored data & per frame & $10^6$ frames & gain \\
+\midrule
+Workflow 1: raw frames (32-bit) $+$ $I$, $\sigma$ (float32) & 2.33\,MB & 2.33\,TB & 1 \\
+Workflow 2: 6 accumulators (float32) & 256\,kB & 256\,GB & 9.1 \\
+Workflow 2: 6 accumulators (float64) & 512\,kB & 512\,GB & 4.5 \\
+Workflow 2: $X_P$, $XX_P$, $\D{X}{P}$ (float32); $\Om_P$, $\OmS_P$, count shared & 128\,kB & 128\,GB & 18.2 \\
+\bottomrule
+\end{tabular}
+\caption{Storage needed by both workflows for $10^6$ Eiger~4M frames integrated on $4000\times8$ bins.}
+\label{tab:storage}
+\end{table}
+
+Table~\ref{tab:storage} shows that storing the accumulators saves an order of magnitude compared to
+keeping the raw frames. Compared to storing only $(I,\sigma)$ (85\,GB), the overhead is 43--171\,GB,
+i.e.\ 2--8\,\% of the raw data volume. $\Om_P$, $\OmS_P$ and the count only depend on the geometry, the
+mask and the normalization (solid angle, polarization, flat-field). When those are static, they can be
+stored once, a per-frame monitor being a scalar factor ($\Om_P\propto m$, $\OmS_P\propto m^2$). Dynamic
+masks or sigma-clipping make them frame-dependent. The noisy accumulators $XX_P$ and $\D{X}{P}$ may also
+compress less than assumed. The second pass is cheaper as well: about 9 times less data is read, and
+the merge of $32\,000$ bins replaces the integration of $4.5$\,Mpixels per frame.
+
+Workflow 2 requires an exact merge of the accumulators with the \texttt{azimuthal} error model, which
+is the subject of this note.
+
+\section{Why squared weights in pyFAI}
+
+In pyFAI, each pixel $i$ provides a raw signal $s_i$ and a normalization $n_i$ (solid angle,
+polarization, flat-field, \dots), and contributes to a bin with a pixel-splitting coefficient $c_i$.
+With $x_i = s_i/n_i$ and $\omega_i = c_i n_i$, the integrated intensity of a bin $P$ is the weighted mean
+\begin{equation}
+  \mean{x}_P = \frac{\sum_{i\in P} c_i s_i}{\sum_{i\in P} c_i n_i}
+             = \frac{\sum_{i\in P}\omega_i x_i}{\sum_{i\in P}\omega_i}.
+\end{equation}
+Neglecting the uncertainty of the denominator, its variance is
+$\sum_{i\in P} c_i^2\,\sigma^2(s_i) \big/ \Om_P^2$.
+The \texttt{poisson} error model propagates a known $\sigma^2(s_i)$, while the \texttt{azimuthal}
+model estimates it from the dispersion within the bin: $\sigma^2(s_i)\approx n_i^2(x_i-\mean{x}_P)^2$.
+Both models then share the same form:
+\begin{equation}
+  \sigma^2(\mean{x}_P) \approx \frac{1}{\Om_P^2}\sum_{i\in P}\omega_i^2 (x_i-\mean{x}_P)^2 = \frac{XX_P}{\Om_P^2},
+\end{equation}
+so that pyFAI reports $\mathrm{sem}=\sqrt{XX_P}/\Om_P$ and $\mathrm{std}=\sqrt{XX_P/\OmS_P}$.
+The mean is weighted by $\omega_i$, the sum of squared deviations by $\omega_i^2$.
+
+\section{Notation}
+\label{sec:notation}
+
+Table~\ref{tab:notation} extends Table~1 of~\cite{SG18}. The only changes are the sum of squared
+weights $\OmS_P$, the $\omega^2$ weighting of the deviation products $VW_P$, and the new first-order
+deviation sums $\D{V}{P}$.
+
+\begin{table}[ht]
+\centering
+\small\setlength{\tabcolsep}{4pt}\begin{tabular}{lll}
+\toprule
+Symbol & Meaning & pyFAI ($V=W=X$) \\
+\midrule
+$A, B, P$ & partitions of the data set & bins, sub-bins \\
+$\AB$ & union of disjoint partitions $A$ and $B$ & \\
+$\Ab$ & partition $A$ plus a single point $b\notin A$ & \\
+$X=\{x_i\}$, $Y$, $V$, $W$ & variables & $x_i = s_i/n_i$ \\
+$\Om=\{\omega_i\}$ & weights & $\omega_i = c_i n_i$ \\
+$V_P=\sum_{i\in P}\omega_i v_i$ & weighted sum of $V$ & \texttt{sum\_signal} \\
+$\Om_P=\sum_{i\in P}\omega_i$ & sum of weights & \texttt{sum\_normalization} \\
+$\OmS_P=\sum_{i\in P}\omega_i^2$ & sum of squared weights & \texttt{sum\_normalization2} \\
+$\mean{v}_P=\frac{1}{\Om_P}V_P$ & weighted mean of $V$ & \texttt{intensity} \\
+$VW_P=\sum_{i\in P}\omega_i^2(v_i-\mean{v}_P)(w_i-\mean{w}_P)$ & $\omega^2$-weighted sum of deviation products & \texttt{sum\_variance} \\
+$\D{V}{P}=\sum_{i\in P}\omega_i^2(v_i-\mean{v}_P)$ & $\omega^2$-weighted sum of deviations & \emph{new accumulator} \\
+\bottomrule
+\end{tabular}
+\caption{Notation, adapted from Table~1 of~\cite{SG18}.}
+\label{tab:notation}
+\end{table}
+
+In~\cite{SG18}, $VW_P=\sum_{i\in P}\omega_i(v_i-\mean{v}_P)(w_i-\mean{w}_P)$, and the analogue of
+$\D{V}{P}$, namely $\sum_{i\in P}\omega_i(v_i-\mean{v}_P)$, is identically zero by definition of the
+mean. With squared weights,
+\begin{equation}
+  \D{V}{P} = \sum_{i\in P}\omega_i^2 v_i - \OmS_P\,\mean{v}_P = \OmS_P\left(\mean{v}^{(\omega^2)}_P - \mean{v}_P\right),
+  \label{eq:D}
+\end{equation}
+where $\mean{v}^{(\omega^2)}_P$ is the $\omega^2$-weighted mean. $\D{V}{P}$ vanishes when both means
+coincide, in particular when all weights within $P$ are equal, but not in general.
+
+\section{Updateable weighted (co-)variance}
+
+\subsection{Mean and ``textbook'' form}
+
+The sums $V_P$, $\Om_P$ and $\OmS_P$ are additive over disjoint partitions, (SG14)--(SG15):
+\begin{equation}
+  V_\AB = V_A + V_B, \qquad \Om_\AB = \Om_A + \Om_B, \qquad \OmS_\AB = \OmS_A + \OmS_B.
+\end{equation}
+The update of the mean is unchanged, (SG16)--(SG17):
+\begin{equation}
+  \mean{v}_\AB = \frac{\Om_A}{\Om_\AB}\mean{v}_A + \frac{\Om_B}{\Om_\AB}\mean{v}_B
+               = \mean{v}_A + \frac{\Om_B}{\Om_\AB}\left(\mean{v}_B - \mean{v}_A\right).
+  \label{eq:mean}
+\end{equation}
+Expanding the product as in (SG18)--(SG19) gives the analogue of the König--Huygens formula:
+\begin{equation}
+  VW_P = \sum_{i\in P}\omega_i^2 v_i w_i - \mean{w}_P\sum_{i\in P}\omega_i^2 v_i
+         - \mean{v}_P\sum_{i\in P}\omega_i^2 w_i + \OmS_P\,\mean{v}_P\,\mean{w}_P .
+  \label{eq:textbook}
+\end{equation}
+Unlike (SG19), the last three terms do not collapse into a single product, as $\mean{v}_P$ is not the
+$\omega^2$-weighted mean. Like the ``textbook'' algorithm, Equation~\eqref{eq:textbook} only involves
+plain sums, which are trivially mergeable, but it suffers from catastrophic cancellation when
+$VW_P \ll \OmS_P\,\mean{v}_P\,\mean{w}_P$. It should not be used.
+
+\subsection{Derivation of the general form}
+\label{sec:derivation}
+
+Section~3.1 of~\cite{SG18} proves (SG21) through an identity derived ``backwards''. With squared
+weights, a direct decomposition is simpler. Let $\delta^v_A = \mean{v}_A - \mean{v}_\AB$ be the shift of
+the mean of $A$ with respect to the mean of the union. Writing
+$v_i-\mean{v}_\AB = (v_i-\mean{v}_A)+\delta^v_A$ and similarly for $w$:
+\begin{align}
+  \sum_{i\in A}\omega_i^2(v_i-\mean{v}_\AB)(w_i-\mean{w}_\AB)
+  &= \sum_{i\in A}\omega_i^2\left[(v_i-\mean{v}_A)+\delta^v_A\right]\left[(w_i-\mean{w}_A)+\delta^w_A\right]\nonumber\\
+  &= VW_A + \delta^w_A\,\D{V}{A} + \delta^v_A\,\D{W}{A} + \OmS_A\,\delta^v_A\,\delta^w_A .
+\end{align}
+In~\cite{SG18}, the two middle terms vanish. Adding the same expression for $B$ gives the
+``parallel axis'' form:
+\begin{equation}
+  VW_\AB = VW_A + VW_B + \sum_{P\in\{A,B\}}\left(\OmS_P\,\delta^v_P\,\delta^w_P + \delta^w_P\,\D{V}{P} + \delta^v_P\,\D{W}{P}\right).
+  \label{eq:parallel}
+\end{equation}
+From Equation~\eqref{eq:mean}, with $\Delta v = \mean{v}_A - \mean{v}_B$:
+\begin{equation}
+  \delta^v_A = \frac{\Om_B}{\Om_\AB}\,\Delta v, \qquad
+  \delta^v_B = -\frac{\Om_A}{\Om_\AB}\,\Delta v .
+\end{equation}
+The same decomposition applied to $\D{V}{\AB}=\sum_{i\in\AB}\omega_i^2(v_i-\mean{v}_\AB)$ gives
+$\D{V}{\AB} = \D{V}{A}+\D{V}{B}+\OmS_A\,\delta^v_A+\OmS_B\,\delta^v_B$, hence:
+
+\begin{proposition}[General form, analogue of (SG21)]
+For disjoint partitions $A$ and $B$, with $\Delta v = \mean{v}_A-\mean{v}_B$ and $\Delta w = \mean{w}_A-\mean{w}_B$:
+\begin{align}
+  VW_\AB &= VW_A + VW_B
+           + \frac{\OmS_A\,\Om_B^2 + \OmS_B\,\Om_A^2}{\Om_\AB^2}\,\Delta v\,\Delta w \nonumber\\
+         &\quad + \frac{\left(\Om_B\D{V}{A}-\Om_A\D{V}{B}\right)\Delta w + \left(\Om_B\D{W}{A}-\Om_A\D{W}{B}\right)\Delta v}{\Om_\AB}, \label{eq:general}\\
+  \D{V}{\AB} &= \D{V}{A} + \D{V}{B} + \frac{\OmS_A\,\Om_B - \OmS_B\,\Om_A}{\Om_\AB}\,\Delta v. \label{eq:Dmerge}
+\end{align}
+\end{proposition}
+
+\paragraph{Variance.} For $V=W=X$, the case used by pyFAI:
+\begin{align}
+  XX_\AB &= XX_A + XX_B + \frac{\OmS_A\,\Om_B^2 + \OmS_B\,\Om_A^2}{\Om_\AB^2}\,\Delta x^2
+           + 2\,\frac{\Om_B\D{X}{A}-\Om_A\D{X}{B}}{\Om_\AB}\,\Delta x, \label{eq:variance}\\
+  \D{X}{\AB} &= \D{X}{A} + \D{X}{B} + \frac{\OmS_A\,\Om_B - \OmS_B\,\Om_A}{\Om_\AB}\,\Delta x . \label{eq:DXmerge}
+\end{align}
+Equation~\eqref{eq:variance} is symmetric in $A$ and $B$: unlike the current pyFAI implementation, the
+partitions do not need to be ordered by weight.
+
+\paragraph{Sufficient statistics.}
+In~\cite{SG18}, the four values $(VW_P, \mean{v}_P, \mean{w}_P, \Om_P)$ are sufficient statistics for
+merging. With squared weights, $(VW_P, \mean{v}_P, \mean{w}_P, \Om_P, \OmS_P, \D{V}{P}, \D{W}{P})$ are
+needed. For the variance alone, this means five accumulators per bin: $X_P$, $\Om_P$, $\OmS_P$, $XX_P$ and
+$\D{X}{P}$. $\D{X}{P}$ cannot be dropped: two partitions may share the same
+$(X_P, \Om_P, \OmS_P, XX_P)$ but have different $\D{X}{P}$, and therefore give different $XX$ once merged
+with the same third partition. No formula based on these four accumulators can be exact.
+
+\paragraph{Reduction to~\cite{SG18}.}
+If $\D{V}{A}=\D{V}{B}=\D{W}{A}=\D{W}{B}=0$ and $\OmS$ is replaced by $\Om$ (same weights for mean and
+deviations), the coefficient of $\Delta v\,\Delta w$ becomes
+$(\Om_A\Om_B^2+\Om_B\Om_A^2)/\Om_\AB^2 = \Om_A\Om_B/\Om_\AB$, and Equation~\eqref{eq:general} reduces to (SG21).
+
+\paragraph{Form using sums.}
+As in (SG22), the means can be replaced by the sums, using
+$\Delta v = (\Om_B V_A - \Om_A V_B)/(\Om_A\Om_B)$:
+\begin{multline}
+  VW_\AB = VW_A + VW_B
+   + \frac{\left(\OmS_A\Om_B^2+\OmS_B\Om_A^2\right)\left(\Om_B V_A-\Om_A V_B\right)\left(\Om_B W_A-\Om_A W_B\right)}{\Om_A^2\,\Om_B^2\,\Om_\AB^2}\\
+   + \frac{\left(\Om_B\D{V}{A}-\Om_A\D{V}{B}\right)\left(\Om_B W_A-\Om_A W_B\right)
+          + \left(\Om_B\D{W}{A}-\Om_A\D{W}{B}\right)\left(\Om_B V_A-\Om_A V_B\right)}{\Om_A\,\Om_B\,\Om_\AB}.
+  \label{eq:sums}
+\end{multline}
+This is the form to use with the accumulators of pyFAI, which stores sums rather than means.
+
+\subsection{Specializations to a single point}
+
+Section~3.2 of~\cite{SG18} specializes the general form to a partition $B=\{b\}$ made of a single point.
+Its statistics are $V_b=\omega_b v_b$, $\Om_b=\omega_b$, $\OmS_b=\omega_b^2$, $VW_b=0$ and also
+$\D{V}{b}=0$. With $\Delta v = \mean{v}_A - v_b$:
+\begin{align}
+  VW_\Ab &= VW_A + \omega_b^2\,\frac{\OmS_A + \Om_A^2}{\Om_\Ab^2}\,\Delta v\,\Delta w
+            + \omega_b\,\frac{\D{V}{A}\,\Delta w + \D{W}{A}\,\Delta v}{\Om_\Ab}, \label{eq:single}\\
+  \D{V}{\Ab} &= \D{V}{A} + \omega_b\,\frac{\OmS_A - \omega_b\,\Om_A}{\Om_\Ab}\,\Delta v .
+\end{align}
+The term in $\D{V}{A}$ remains: even an online algorithm, which adds one point at a time, has to carry
+$\D{V}{A}$. Only the contribution of the new point vanishes.
+
+\paragraph{Analogue of Welford's update (SG27).} Welford~\cite{Welford62}, in the form given by Knuth, updates the sum of squared deviations with the product of the deviations to the old and new means.
+For $V=W=X$, using $\mean{x}_\Ab - x_b = \frac{\Om_A}{\Om_\Ab}(\mean{x}_A - x_b)$, Equation~\eqref{eq:single} reads
+\begin{equation}
+  XX_\Ab = XX_A + \omega_b^2\,\frac{\OmS_A + \Om_A^2}{\Om_A\,\Om_\Ab}\left(\mean{x}_\Ab - x_b\right)\left(\mean{x}_A - x_b\right)
+           + 2\,\omega_b\,\frac{\D{X}{A}}{\Om_\Ab}\left(\mean{x}_A - x_b\right).
+  \label{eq:welford}
+\end{equation}
+The update currently implemented in pyFAI is (SG27) with $\omega_b^2$ in place of $\omega_b$:
+$XX_\Ab \approx XX_A + \omega_b^2(\mean{x}_\Ab - x_b)(\mean{x}_A - x_b)$. Compared to
+Equation~\eqref{eq:welford}, it misses the factor $(\OmS_A+\Om_A^2)/(\Om_A\Om_\Ab)$ and the $\D{X}{A}$ term.
+Both corrections vanish when all the weights of $A\sqcup\{b\}$ are equal: $\OmS_A = \omega_b\Om_A$ and
+$\D{X}{A}=0$. This is why the current formula is accurate for nearly uniform weights, and in particular
+for unweighted data.
+
+\paragraph{Analogue of Youngs and Cramer's update (SG28).} Youngs and Cramer~\cite{YC71} use the running sum instead of the running mean.
+Using the sum $X_A$ instead of the mean, with $\mean{x}_A - x_b = (X_A - \Om_A x_b)/\Om_A$:
+\begin{equation}
+  XX_\Ab = XX_A + \omega_b^2\,\frac{\OmS_A + \Om_A^2}{\Om_A^2\,\Om_\Ab^2}\left(X_A - \Om_A x_b\right)^2
+           + 2\,\omega_b\,\frac{\D{X}{A}}{\Om_A\,\Om_\Ab}\left(X_A - \Om_A x_b\right).
+  \label{eq:youngs}
+\end{equation}
+As in~\cite{SG18}, the division comes last and only $XX$ and $\D{X}{}$ depend on it. This is the
+preferred form for pipelined CPUs and GPUs.
+
+\subsection{Numerical remarks}
+
+\begin{itemize}
+\item $\D{V}{P}$ could be replaced by the plain sum $\sum_{i\in P}\omega_i^2 v_i$, which is trivially
+  mergeable (Equation~\eqref{eq:D}). However, recovering $\D{V}{P}$ from it involves the difference of two
+  large, close numbers. The centered quantity $\D{V}{P}$ is preferred for the same reason as $VW_P$ is
+  preferred to $\sum\omega_i^2 v_i w_i$.
+\item $XX_P$ and $\OmS_P$ are sums of positive terms and are insensitive to cancellation: single
+  precision is sufficient for an uncertainty. $\D{X}{P}$ is a correction term, also accurate enough in
+  single precision. Conversely, $\Delta x = \mean{x}_A - \mean{x}_B$ is a difference of close numbers:
+  $X_P$ and $\Om_P$ deserve the highest available precision (double-word arithmetic on GPU).
+\item In the OpenCL implementation, the \texttt{float8} accumulator stores $X_P$, $XX_P$ and $\Om_P$ in
+  double-word precision, the count and $\OmS_P$ in single precision. In the \texttt{azimuthal} model, the
+  low word of $XX_P$ is the natural slot for $\D{X}{P}$.
+\end{itemize}
+
+\subsection{Scope of the exact merge: pixel splitting}
+\label{sec:splitting}
+
+Equations~\eqref{eq:variance} and~\eqref{eq:DXmerge} are exact for the union of the contributions of
+$A$ and $B$. They reproduce a direct integration of $A\cup B$ only if no pixel contributes to both
+partitions. This is always the case when merging different frames or scan points, since each (pixel,
+frame) pair belongs to a single frame. It is not the case when merging neighbouring bins of the same
+frame (azimuthal sectors into a 1D profile, 2D into 1D rebinning) if pixel splitting is enabled.
+
+A pixel $i$ split between $A$ and $B$ with the coefficients $c_{iA}$ and $c_{iB}$ appears in the merge as
+two contributions with the same $x_i$. $\Om_P$ and $X_P$ are linear in $c$ and remain exact. But $\OmS_P$,
+$XX_P$ and $\D{X}{P}$ receive $(c_{iA}^2+c_{iB}^2)\,n_i^2$ instead of $(c_{iA}+c_{iB})^2\,n_i^2$. As
+$c_{iA}^2+c_{iB}^2 < (c_{iA}+c_{iB})^2$, they are underestimated, and so is the propagated uncertainty.
+Moreover, pixel splitting correlates neighbouring bins~\cite{Yang14}, which biases the $\chi^2$ of
+Equation~\eqref{eq:chi2} when the split pixels are shared between azimuthal sectors.
+
+\textbf{The merge is therefore rigorously exact only when pixel splitting is disabled} (pyFAI method
+\texttt{("no", "csr", \dots)}), or when the merged partitions do not share any pixel. With hybrid
+photon-counting detectors such as Eiger or Pilatus, whose point-spread function is about one pixel
+with no correlation between neighbouring pixels, pixel splitting brings little and is best disabled for
+data meant to be merged, with bins at least as wide as a pixel. With splitting enabled, the error remains
+small when the bins are much wider than a pixel, since only the pixels on the bin edges are shared.
+
+\section{Consequences for pyFAI}
+\sloppy
+
+\begin{itemize}
+\item Every engine implementing the \texttt{azimuthal} error model (Cython CSR, CSC, LUT, histogram;
+  OpenCL CSR) should accumulate $\D{X}{P}$ and use Equations~\eqref{eq:variance}, \eqref{eq:sums}
+  or~\eqref{eq:youngs}, which are exact.
+\item Integrated results should expose $\D{X}{P}$ next to $XX_P$ (\texttt{sum\_variance}) and $\OmS_P$
+  (\texttt{sum\_normalization2}). Already-integrated results can then be merged exactly with the
+  \texttt{azimuthal} error model: union of results, multi-geometry, and rebinning of 2D results into 1D
+  (the latter only without pixel splitting, Section~\ref{sec:splitting}).
+\item A numerical validation is provided in the tutorial notebook
+  \nolinkurl{doc/source/usage/tutorial/Variance/uncertainties.ipynb}.
+\end{itemize}
+
+\section{Validation by simulation}
+\label{sec:simulation}
+
+\subsection{Setup}
+
+Both workflows of Section~1 are compared on a single bin of $1000$ pixels, with a normalization
+$n_i$ uniformly distributed in $[0.7, 1.3]$ and $\omega_i = n_i$. A series is made of $N=32$ independent
+frames. Each frame has a background of $20$ counts and very ``spotty'' diffraction: each pixel has a
+1\,\% probability to receive a spot of $2000$ counts, at positions drawn again for every frame. Poisson
+noise is added to the expected signal $n_i(\text{background}+\text{spots})$.
+\begin{itemize}
+\item Workflow 1: the raw frames are averaged, then integrated once with the \texttt{azimuthal} model.
+\item Workflow 2: the union of all (pixel, frame) pairs is integrated, which is exactly what the merge
+  of the per-frame accumulators gives.
+\end{itemize}
+The experiment is repeated $1000$ times. The true standard error of the mean is the dispersion of the
+integrated intensity over the repetitions; with $1000$ repetitions it is known to about $\pm2\,\%$.
+
+Applying the decomposition of Section~\ref{sec:derivation} to the $N$ values of each pixel gives
+\begin{equation}
+  XX_{[2]} = N\,XX_{[1]} + \sum_{i}\omega_i^2\sum_{k=1}^{N}\left(x_{ik}-\bar{x}_i\right)^2,
+  \label{eq:temporal}
+\end{equation}
+where $\bar{x}_i$ is the average of pixel $i$ over the frames. Workflow 1 removes the temporal dispersion
+of each pixel (the last term) before integration, workflow 2 keeps it. With $\Om_{[2]}=N\,\Om_{[1]}$ (indices $[1]$ and $[2]$ refer to the workflows),
+both give the same intensity, but their standard errors differ in general. Writing each pixel value as
+a true value, plus a systematic azimuthal structure of variance $S$ (texture, constant over the frames),
+plus a noise of variance $\sigma^2$ independent from frame to frame, one expects
+\begin{equation}
+  \mathrm{sem}_1^2 \approx \frac{\OmS}{\Om^2}\left(\frac{\sigma^2}{N} + S\right), \qquad
+  \mathrm{sem}_2^2 \approx \frac{\OmS}{\Om^2}\left(\frac{\sigma^2}{N} + \frac{S}{N}\right).
+\end{equation}
+Without texture ($S=0$), both are equivalent. Spots appearing at random positions in every frame belong
+to $\sigma^2$, not to $S$.
+
+\subsection{Results}
+
+Table~\ref{tab:simulation} gives the results. Equation~\eqref{eq:temporal} is verified to $2\times10^{-16}$,
+and the intensities of both workflows agree to $7\times10^{-15}$.
+
+\begin{table}[ht]
+\centering
+\small
+\begin{tabular}{lcc}
+\toprule
+ & No texture & Fixed texture \\
+\midrule
+True standard error of the mean & 1.150 & 1.182 \\
+Workflow 1 (average frames, then integrate) & $1.128 \pm 0.041$ & $1.211 \pm 0.043$ \\
+Workflow 2 (merge accumulators) & $1.129 \pm 0.034$ & $1.131 \pm 0.032$ \\
+\bottomrule
+\end{tabular}
+\caption{Standard error of the mean estimated by both workflows ($N=32$ frames, $1000$ pixels, $1000$
+repetitions). The $\pm$ is the dispersion of the estimator over the repetitions.}
+\label{tab:simulation}
+\end{table}
+
+\paragraph{Without texture.} Both workflows give the same standard error, in agreement with the true
+value: both are about 2\,\% low, at the limit of the precision of the simulation, which may come from
+the heavy-tailed distribution of the spotty signal. Workflow 2 is even slightly more stable
+($\pm0.034$ instead of $\pm0.041$), as the dispersion is estimated from $32\,000$ samples instead of $1000$.
+
+\paragraph{With a fixed texture.} To show the difference, a systematic structure is added: a Gaussian
+random offset of standard deviation $15$ counts per pixel, drawn once per repetition and kept for its
+$N$ frames. As expected, workflow 1 keeps the term $S$ and slightly overestimates the error ($1.211$),
+whereas workflow 2 divides it by $N$ and underestimates it ($1.131$). It counts $N$ measurements of the
+same pixels as independent samples.
+
+\subsection{Checking for texture before merging}
+
+The absence of texture can be checked on the pre-integrated data themselves, frame by frame, using the
+azimuthal bins. Without texture, the intensities $I_j$ of the $M$ azimuthal sectors of a radial bin agree
+within their standard errors $\mathrm{sem}_j$, and
+\begin{equation}
+  \chi^2 = \sum_{j=1}^{M}\frac{\left(I_j - I\right)^2}{\mathrm{sem}_j^2}
+  \label{eq:chi2}
+\end{equation}
+is close to its expectation of $M-1$ (7 for 8 sectors), where $I$ is the intensity of the merged sectors. The same test can
+be applied to the merge of several frames, where a systematic texture accumulates whereas random
+spots average out. Once the absence of texture is validated, the azimuthal bins are merged with
+Equations~\eqref{eq:variance} and~\eqref{eq:DXmerge}, which gives a single 1D integrated signal with an
+exact propagation of the \texttt{azimuthal} error, provided pixel splitting is disabled
+(Section~\ref{sec:splitting}). This test only detects a texture at the scale of the
+azimuthal sectors. A texture at the scale of the pixels, as in the simulation above, cannot be seen in
+the accumulators; it requires the raw frames, e.g.\ through the ratio of both terms of
+Equation~\eqref{eq:temporal}.
+
+\section{Experimental examples}
+
+\subsection{Spottiness: is the sample exposed enough?}
+\label{sec:spottiness}
+
+Rietveld refinement assumes an ideal powder: each Debye--Scherrer ring is sampled by a large number of
+randomly oriented crystallites, and its intensity is uniform along the azimuth. With a small beam, large
+crystallites or a short exposure, rings break into spots and the integrated intensities become
+unreliable. The \texttt{azimuthal} error model directly measures this: the relative standard error of
+the mean of radial bin $r$ is
+\begin{equation}
+  \frac{\mathrm{sem}_r}{I_r} = \frac{\sqrt{XX_r}/\Om_r}{X_r/\Om_r} = \frac{\sqrt{XX_r}}{X_r},
+\end{equation}
+and pyFAI defines the spottiness index (\texttt{IntegrateResult.calc\_spottiness}), inspired
+by~\cite{Ingham14}, as its quadratic mean over the radial bins:
+\begin{equation}
+  S = \sqrt{\frac{\sum_r w_r\,XX_r/X_r^2}{\sum_r w_r}},
+  \label{eq:spottiness}
+\end{equation}
+with $w_r=1$ (unweighted) or $w_r=I_r$ (weighted by the intensity of the rings, which emphasizes the
+Bragg peaks). As a rule of thumb, $S<0.05$ corresponds to a smooth powder pattern, $0.05<S<0.15$ to a
+mild spottiness or texture, and $S>0.15$ to a strongly spotty pattern, likely with large grains.
+$S$ only depends on the accumulators, so it can be calculated after any merge of pre-integrated results.
+
+The dataset used here was recorded on the ID11 beamline of the ESRF on the standard reference material
+SRM~640 (silicon), with a sub-micron beam at 40\,keV and an Eiger2~CdTe~4M detector at 200\,Hz. The first
+data file contains 200 frames, out of 90 files. It is processed in the pyFAI tutorial
+\nolinkurl{doc/source/usage/tutorial/Spotty.ipynb}, with $2000$ bins in $2\theta$ and the
+\texttt{azimuthal} error model:
+\begin{itemize}
+\item a single frame is strongly spotty: $S\approx0.16$ (unweighted) and $S\approx0.21$ (weighted), with
+  large fluctuations from frame to frame for the weighted index;
+\item merging the pre-integrated results of successive frames decreases $S$ to about $0.02$ after 200
+  frames. Beyond a few tens of frames, $S$ decreases as $1/\sqrt{N}$, as expected for independent frames
+  (Section~\ref{sec:simulation}). The 199 merges take about $0.1$\,s;
+\item integrating the average of the 200 raw frames (workflow 1) gives $S=0.025$ unweighted but
+  $S=0.061$ weighted. According to Section~\ref{sec:simulation}, this difference points to a systematic
+  azimuthal structure on the most intense rings, which survives the averaging. Its origin (residual
+  texture, dynamically masked pixels of the detector, geometry) remains to be investigated.
+\end{itemize}
+
+The spottiness index is therefore a metric to decide when a sample has been exposed long enough:
+frames are integrated on the fly, their accumulators merged, and the acquisition stops once $S$ goes
+below a target value, e.g.\ $0.05$ for a Rietveld-quality pattern. For this dataset, about 35 frames are
+needed, whereas a pure $1/\sqrt{N}$ extrapolation from the first frame would predict 10: the measured
+curve, not the extrapolation, should be used. Exposing no longer than needed limits the radiation
+damage to the sample and the cost of the experiment (beam time, storage). The tutorial still uses the
+approximate merge formula currently implemented in pyFAI; the figures will be updated with the exact
+merge of Section~\ref{sec:derivation}.
+
+\subsection{Texture and orientation: a Kevlar fibre}
+\label{sec:kevlar}
+
+Texture is the opposite case: the azimuthal distribution of the intensity is the signal of interest,
+and the azimuthal sectors must not be merged. The dataset, recorded on the ID13
+beamline of the ESRF, is a tomographic scan of a Kevlar fibre, i.e.\ poly(\emph{p}-phenylene
+terephthalamide), a highly oriented polymer~\cite{Northolt74}. Its main characteristics, read from the
+data files, are:
+\begin{itemize}
+\item Eiger~4M detector (silicon sensor, $450\,\mu$m), $2167\times2070$ pixels, 16-bit frames;
+\item photon energy $13.45$\,keV ($\lambda=0.922$\,\AA), $10$\,ms per frame;
+\item $85\times160 = 13\,600$ frames, stored in 7 files of about $13.3$\,GB in total (compressed);
+\item a calibration dataset on corundum ($\alpha$-Al$_2$O$_3$), with the corresponding calibration notebook.
+\end{itemize}
+The data are available at \url{http://ftp.edna-site.org/pyFAI/kevlar/}. This well-known dataset has not
+been processed yet with the method of this note; the following describes the planned analysis.
+
+\paragraph{Integration and storage.} Each frame is integrated on $1000$ radial $\times$ $36$ azimuthal
+bins (sectors of $10^\circ$), with the \texttt{azimuthal} error model and without pixel splitting, so
+that the sectors can later be merged exactly (Section~\ref{sec:splitting}), and the accumulators are stored.
+With the assumptions of Section~1 (compression ratio of 3 for floating-point data), the 6 accumulators
+in float32 take about $288$\,kB per frame, i.e.\ $3.9$\,GB for the whole scan, or $2.0$\,GB when
+$\Om_P$, $\OmS_P$ and the count are shared. Compared to the $13.3$\,GB of raw data, the gain is only 3.4 to
+6.8, smaller than in Section~1: the raw frames are 16-bit, and 36 azimuthal sectors are kept.
+
+\paragraph{Texture.} For each frame and each radial bin, the $\chi^2$ of Equation~\eqref{eq:chi2} with
+$M=36$ sectors (expectation $35$) tests the isotropy of the signal. Frames where the beam misses the
+fibre (air scattering only) should be consistent with $\chi^2\approx35$, while frames through the fibre
+should be strongly anisotropic. This validates the texture test on real data, and gives a map of the
+anisotropy over the scan.
+
+\paragraph{Orientation.} For the textured frames, the azimuthal profile $I_j$ of the strong equatorial
+reflections of Kevlar, (110) and (200) at $d\approx4.3$ and $3.9$\,\AA~\cite{Northolt74}, gives the
+orientation of the fibre axis projected on the detector (position of the maxima) and the degree of
+orientation (width of the peaks, or Hermans orientation factor). The uncertainties $\mathrm{sem}_j$
+propagated by the \texttt{azimuthal} model give error bars on these parameters. Frames with the same
+orientation can then be merged sector by sector, exactly, to improve the statistics, without going back
+to the raw data.
+
+{\sloppy\begin{thebibliography}{9}
+\bibitem{SG18}
+E.~Schubert and M.~Gertz.
+\newblock Numerically stable parallel computation of (co-)variance.
+\newblock In \emph{Proceedings of the 30th International Conference on Scientific and Statistical
+  Database Management (SSDBM~'18)}, pages 10:1--10:12, Bozen-Bolzano, Italy, 2018.
+\newblock \href{https://doi.org/10.1145/3221269.3223036}{doi:10.1145/3221269.3223036}.
+
+\bibitem{Welford62}
+B.~P. Welford.
+\newblock Note on a method for calculating corrected sums of squares and products.
+\newblock \emph{Technometrics}, 4(3):419--420, 1962.
+\newblock \href{https://doi.org/10.2307/1266577}{doi:10.2307/1266577}.
+
+\bibitem{YC71}
+E.~A. Youngs and E.~M. Cramer.
+\newblock Some results relevant to choice of sum and sum-of-product algorithms.
+\newblock \emph{Technometrics}, 13(3):657--665, 1971.
+\newblock \href{https://doi.org/10.1080/00401706.1971.10488826}{doi:10.1080/00401706.1971.10488826}.
+\bibitem{Ingham14}
+B.~Ingham.
+\newblock Statistical measures of spottiness in diffraction rings.
+\newblock \emph{Journal of Applied Crystallography}, 47(1):166--172, 2014.
+\newblock \href{https://doi.org/10.1107/S1600576713029713}{doi:10.1107/S1600576713029713}.
+
+\bibitem{Yang14}
+X.~Yang, P.~Juh\'as and S.~J.~L. Billinge.
+\newblock On the estimation of statistical uncertainties on powder diffraction and small-angle
+  scattering data from two-dimensional X-ray detectors.
+\newblock \emph{Journal of Applied Crystallography}, 47(4):1273--1283, 2014.
+\newblock \href{https://doi.org/10.1107/S1600576714010516}{doi:10.1107/S1600576714010516}.
+
+\bibitem{Northolt74}
+M.~G. Northolt.
+\newblock X-ray diffraction study of poly(\emph{p}-phenylene terephthalamide) fibres.
+\newblock \emph{European Polymer Journal}, 10(9):799--804, 1974.
+\newblock \href{https://doi.org/10.1016/0014-3057(74)90131-1}{doi:10.1016/0014-3057(74)90131-1}.
+\end{thebibliography}}
+
+\end{document}
