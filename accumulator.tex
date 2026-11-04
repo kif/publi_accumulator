@@ -289,11 +289,15 @@ In HPLC mode, the frames are compared with the first singular vector of the sing
 
 \subsection{Powder diffraction}
 \label{sec:powder}
-Data collected at material science ID11 were
-- Absence of texture
-- accumulate how long
-% Silicon SRM 640, Eiger2 CdTe 4M (Spotty notebook): chi^2 test for absence of texture;
-% decrease of S with the number of merged frames as a stopping criterion (radiation damage, cost).
+The pyFAI tutorial on spotty data (supporting information) uses a silicon powder standard (NIST SRM 640) measured at the ID11 beamline of the ESRF with a sub-micrometre beam at 40\,keV.
+Two hundred frames were recorded at 200\,Hz with an Eiger2 CdTe 4M detector, and each frame was integrated into 2000 bins in $2\theta$, without pixel splitting and with the azimuthal error model.
+With such a small beam, few crystallites are in diffraction condition and the Debye--Scherrer rings of a single frame are spotty, with $S=0.156$, or 0.209 with $w_r=\mean{x}_r$ (equation~\ref{eq:spottiness}).
+Merging the accumulators of successive frames decreases the spottiness as $1/\sqrt{N}$, as expected for independent frames.
+The spottiness of the merged pattern therefore indicates how many frames have to be accumulated to reach a given quality, which can be used as a stopping criterion to limit radiation damage and beam time.
+This merge is cheap: the 200 integrated patterns are merged in 0.12\,s, whereas their integration took 8\,s.
+% TODO figure: S versus the number of merged frames, with the 1/sqrt(N) law (Spotty notebook).
+% TODO absence of texture: chi^2 test of Section sec:texture on azimuthal sectors (not in the
+%   Spotty notebook yet).
 
 \subsection{Texture tomography}
 \label{sec:texture-tomo}
