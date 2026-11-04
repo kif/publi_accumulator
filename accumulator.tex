@@ -60,15 +60,16 @@
 \affil[a]{The European Synchrotron, 72 avenue des Martyrs, 38000 Grenoble, France }
 %\affil[b]{Different Department, Different Organization, ..., Country }
 
-\begin{document} 
-\maketitle 
+\begin{document}
+\maketitle
 
 \begin{synopsis}
-Mathematical development allowing the reduction of scattering data allowing the quality validation, data merging and re-binning with error propagation. 
+Mathematical development allowing the reduction of scattering data allowing the quality validation, data merging and re-binning with error propagation.
 \end{synopsis}
 
 \begin{abstract}
-Single paragraph stating as specifically and as quantitatively as possible the principal results obtained, and providing an indication of the broader significance of the work. The abstract should be capable of being understood on its own without access to the text or figures. 
+Single paragraph stating as specifically and as quantitatively as possible the principal results obtained, and providing an indication of the broader significance of the work.
+The abstract should be capable of being understood on its own without access to the text or figures.
 \end{abstract}
 
 \keywords{ pyFAI, Azimuthal integration, accumulator, spottiness, texture, frame averaging}
@@ -95,41 +96,35 @@ Single paragraph stating as specifically and as quantitatively as possible the p
 \subsection{Azimuthal integration as a weighted mean}
 \label{sec:weighted-mean}
 
-In pyFAI, each pixel $i$ provides a signal $s_i$ (raw counts, after dark-current subtraction) and a
-normalization $n_i$, the product of the flat-field, solid-angle, polarization and detector-efficiency
-corrections, possibly multiplied by the incoming flux \cite{Kieffer2020}. A pixel contributes to a bin
-$P$ with a coefficient $0<c_i\le1$, the fraction of its area falling into the bin, which is 1 without
-pixel splitting. With the corrected intensity $x_i = s_i/n_i$ and the weight $\omega_i = c_i n_i$, the
-integrated intensity of the bin is a weighted mean:
+In pyFAI, each pixel $i$ provides a signal $s_i$ (raw counts, after dark-current subtraction) and a normalization $n_i$, the product of the flat-field, solid-angle, polarization and detector-efficiency corrections, possibly multiplied by the incoming flux \cite{Kieffer2020}.
+A pixel contributes to a bin $P$ with a coefficient $0<c_i\le1$, the fraction of its area falling into the bin, which is 1 without pixel splitting.
+With the corrected intensity $x_i = s_i/n_i$ and the weight $\omega_i = c_i n_i$, the integrated intensity of the bin is a weighted mean:
 \begin{equation}
   \mean{x}_P = \frac{\sum_{i\in P} c_i s_i}{\sum_{i\in P} c_i n_i}
              = \frac{\sum_{i\in P}\omega_i x_i}{\sum_{i\in P}\omega_i}.
   \label{eq:mean-bin}
 \end{equation}
-Neglecting the uncertainty of the normalization, the variance of this mean is
-\cite{Kieffer2020,Kieffer2025}
+Neglecting the uncertainty of the normalization, the variance of this mean is \cite{Kieffer2020,Kieffer2025}
 \begin{equation}
   \sigma^2(\mean{x}_P) = \frac{\sum_{i\in P} c_i^2\,\sigma^2(s_i)}{\left(\sum_{i\in P}\omega_i\right)^2}.
   \label{eq:var-bin}
-\end{equation} pyFAI offers two models for the variance of the signal. The
-\emph{Poisson} model propagates a known variance, \emph{e.g.}\ $\sigma^2(s_i)=s_i$ for a counting
-detector. The \emph{azimuthal} model assumes that all pixels of a bin sample the same intensity and
-estimates the variance from their dispersion, $\sigma^2(s_i)\approx n_i^2(x_i-\mean{x}_P)^2$, which
-also works for detectors whose noise is not Poissonian \cite{Kieffer2025}. Both estimates agree on
-isotropic data recorded with a counting detector \cite{Sedlak2017}. The azimuthal model gives
+\end{equation}
+pyFAI offers two models for the variance of the signal.
+The \emph{Poisson} model propagates a known variance, \emph{e.g.}\ $\sigma^2(s_i)=s_i$ for a counting detector.
+The \emph{azimuthal} model assumes that all pixels of a bin sample the same intensity and estimates the variance from their dispersion, $\sigma^2(s_i)\approx n_i^2(x_i-\mean{x}_P)^2$, which also works for detectors whose noise is not Poissonian \cite{Kieffer2025}.
+Both estimates agree on isotropic data recorded with a counting detector \cite{Sedlak2017}.
+The azimuthal model gives
 \begin{equation}
   \sigma^2(\mean{x}_P) = \frac{\sum_{i\in P}\omega_i^2(x_i-\mean{x}_P)^2}{\left(\sum_{i\in P}\omega_i\right)^2}.
   \label{eq:sem-bin}
 \end{equation}
-The mean is weighted by $\omega_i$, whereas the squared deviations are weighted by $\omega_i^2$. This
-is the main difference with the weighted (co-)variance of \citeasnoun{Schubert2018}, where the same
-weights are used for both.
+The mean is weighted by $\omega_i$, whereas the squared deviations are weighted by $\omega_i^2$.
+This is the main difference with the weighted (co-)variance of \citeasnoun{Schubert2018}, where the same weights are used for both.
 
-Two uncertainties are reported. The standard error of the mean, $\mathrm{sem}=\sigma(\mean{x}_P)$, is
-the uncertainty on the integrated intensity. The standard deviation, $\mathrm{std}$, is the uncertainty
-on the intensity of a single pixel. They are related by $\mathrm{sem}=\mathrm{std}/\sqrt{N_\mathrm{eff}}$,
-where $N_\mathrm{eff}=\left(\sum\omega_i\right)^2/\sum\omega_i^2$ is the effective number of pixels in the
-bin \cite{Kieffer2025}.
+Two uncertainties are reported.
+The standard error of the mean, $\mathrm{sem}=\sigma(\mean{x}_P)$, is the uncertainty on the integrated intensity.
+The standard deviation, $\mathrm{std}$, is the uncertainty on the intensity of a single pixel.
+They are related by $\mathrm{sem}=\mathrm{std}/\sqrt{N_\mathrm{eff}}$, where $N_\mathrm{eff}=\left(\sum\omega_i\right)^2/\sum\omega_i^2$ is the effective number of pixels in the bin \cite{Kieffer2025}.
 
 \subsection{Accumulators}
 \label{sec:accumulators}
@@ -165,85 +160,68 @@ The intensity and its uncertainties follow from the accumulators:
   \mathrm{std}_P = \sqrt{\frac{\XX_P}{\OmS_P}}.
   \label{eq:results}
 \end{equation}
-With the Poisson model, $\XX_P$ is replaced by the propagated variance
-$\sum_{i\in P}c_i^2\,\sigma^2(s_i)$, and $C_P$ is not needed (Section~\ref{sec:merge}).
+With the Poisson model, $\XX_P$ is replaced by the propagated variance $\sum_{i\in P}c_i^2\,\sigma^2(s_i)$, and $C_P$ is not needed (Section~\ref{sec:merge}).
 
-The new accumulator $C_P$ is specific to squared weights. With the weights of
-\citeasnoun{Schubert2018}, its analogue $\sum\omega_i(x_i-\mean{x}_P)$ vanishes by definition of the
-mean. Here, $C_P=\OmS_P\left(\tilde{x}_P-\mean{x}_P\right)$, where $\tilde{x}_P$ is the mean
-weighted by $\omega_i^2$. $C_P$ vanishes when all the weights of the bin are equal, but not in general.
+The new accumulator $C_P$ is specific to squared weights.
+With the weights of \citeasnoun{Schubert2018}, its analogue $\sum\omega_i(x_i-\mean{x}_P)$ vanishes by definition of the mean.
+Here, $C_P=\OmS_P\left(\tilde{x}_P-\mean{x}_P\right)$, where $\tilde{x}_P$ is the mean weighted by $\omega_i^2$.
+$C_P$ vanishes when all the weights of the bin are equal, but not in general.
 
 \subsection[Exact merge in the formalism of Schubert \& Gertz (2018)]{Exact merge in the formalism of \protect\citeasnoun{Schubert2018}}
 \label{sec:merge}
 
-Let $A$ and $B$ be two disjoint partitions, \emph{e.g.}\ the same bin in two frames, and $\AB$ their
-union. $\Om$, $\OmS$, $X$ and $N$ are plain sums, hence additive, and the mean is updated as in
-\citeasnoun{Schubert2018}:
+Let $A$ and $B$ be two disjoint partitions, \emph{e.g.}\ the same bin in two frames, and $\AB$ their union.
+$\Om$, $\OmS$, $X$ and $N$ are plain sums, hence additive, and the mean is updated as in \citeasnoun{Schubert2018}:
 \begin{equation}
   \Om_\AB = \Om_A+\Om_B, \quad \OmS_\AB = \OmS_A+\OmS_B, \quad X_\AB = X_A+X_B, \quad
   \mean{x}_\AB = \mean{x}_A + \frac{\Om_B}{\Om_\AB}\left(\mean{x}_B-\mean{x}_A\right).
   \label{eq:additive}
 \end{equation}
-With $\Delta x = \mean{x}_A-\mean{x}_B$, the sum of squared deviations and the new accumulator are
-merged exactly by (Appendix~\ref{app:derivation})
+With $\Delta x = \mean{x}_A-\mean{x}_B$, the sum of squared deviations and the new accumulator are merged exactly by (Appendix~\ref{app:derivation})
 \begin{align}
   \XX_\AB &= \XX_A + \XX_B + \frac{\OmS_A\,\Om_B^2+\OmS_B\,\Om_A^2}{\Om_\AB^2}\,\Delta x^2
             + 2\,\frac{\Om_B\,C_A-\Om_A\,C_B}{\Om_\AB}\,\Delta x, \label{eq:XXmerge}\\
   C_\AB  &= C_A + C_B + \frac{\OmS_A\,\Om_B-\OmS_B\,\Om_A}{\Om_\AB}\,\Delta x. \label{eq:Cmerge}
 \end{align}
-When the same weights are used for the mean and the deviations ($\OmS\to\Om$, $C\to0$),
-equation~(\ref{eq:XXmerge}) reduces to equation~(21) of \citeasnoun{Schubert2018}. The merge is
-symmetric in $A$ and $B$, so it can be applied in any order: sequentially, frame after frame, or as a
-parallel tree reduction.
+When the same weights are used for the mean and the deviations ($\OmS\to\Om$, $C\to0$), equation~(\ref{eq:XXmerge}) reduces to equation~(21) of \citeasnoun{Schubert2018}.
+The merge is symmetric in $A$ and $B$, so it can be applied in any order: sequentially, frame after frame, or as a parallel tree reduction.
 
-The term in $C$ cannot be avoided. Two partitions may share the same $(\Om,\OmS,X,\XX)$ but have
-different $C$, and therefore give different $\XX$ once merged with the same third partition
-(Appendix~\ref{app:derivation}). No merge formula based on the four accumulators stored by pyFAI so far
-can thus be exact. The approximate formula used up to now, equation~(18) of \citeasnoun{Kieffer2025},
-is accurate when the weights are nearly uniform, but its error grows for tree reductions over strongly
-heterogeneous weights, as shown in the pyFAI tutorial on uncertainties (supporting information).
+The term in $C$ cannot be avoided.
+Two partitions may share the same $(\Om,\OmS,X,\XX)$ but have different $C$, and therefore give different $\XX$ once merged with the same third partition (Appendix~\ref{app:derivation}).
+No merge formula based on the four accumulators stored by pyFAI so far can thus be exact.
+The approximate formula used up to now, equation~(18) of \citeasnoun{Kieffer2025}, is accurate when the weights are nearly uniform, but its error grows for tree reductions over strongly heterogeneous weights, as shown in the pyFAI tutorial on uncertainties (supporting information).
 % TODO: quote the error figures of the tutorial (about 3e-4 sequential, 10 % tree) or keep qualitative.
 
-With the Poisson model, the variance accumulator is a sum of propagated variances,
-$\sum_{i\in P}c_i^2\,\sigma^2(s_i)$, and is merged by a plain addition, like $\Om$, $\OmS$ and $X$.
+With the Poisson model, the variance accumulator is a sum of propagated variances, $\sum_{i\in P}c_i^2\,\sigma^2(s_i)$, and is merged by a plain addition, like $\Om$, $\OmS$ and $X$.
 Only the azimuthal model requires $C$.
 
-Equations~(\ref{eq:XXmerge}) and (\ref{eq:Cmerge}) also apply to a partition $B=\{b\}$ made of a single
-pixel ($\XX_b=C_b=0$), which gives the update used when pixels are accumulated one at a time
-(Appendix~\ref{app:derivation}). As for the means, $\Delta x$ is a difference of close numbers: $X$ and
-$\Om$ are accumulated in double precision, or in double-word arithmetic on GPU \cite{Joldes2017},
-whereas $\XX$, $\OmS$ and $C$ are well conditioned and single precision is sufficient.
+Equations~(\ref{eq:XXmerge}) and (\ref{eq:Cmerge}) also apply to a partition $B=\{b\}$ made of a single pixel ($\XX_b=C_b=0$), which gives the update used when pixels are accumulated one at a time (Appendix~\ref{app:derivation}).
+As for the means, $\Delta x$ is a difference of close numbers: $X$ and $\Om$ are accumulated in double precision, or in double-word arithmetic on GPU \cite{Joldes2017}, whereas $\XX$, $\OmS$ and $C$ are well conditioned and single precision is sufficient.
 
 \subsection{Scope of the exact merge: pixel splitting}
 \label{sec:splitting}
 
-Equations~(\ref{eq:XXmerge}) and (\ref{eq:Cmerge}) are exact for the union of the contributions of $A$
-and $B$. They reproduce a direct integration of $A\cup B$ only if no pixel contributes to both
-partitions. This is always the case for different frames or scan points. It is not the case when
-neighbouring bins of the same frame are merged, \emph{e.g.}\ azimuthal sectors into a 1D profile,
-while pixel splitting is enabled. A pixel split between $A$ and $B$ with the coefficients $c_{iA}$ and
-$c_{iB}$ then contributes $(c_{iA}^2+c_{iB}^2)\,n_i^2$ to $\OmS$, $\XX$ and $C$ instead of
-$(c_{iA}+c_{iB})^2\,n_i^2$, which underestimates the uncertainty. Pixel splitting also correlates
-neighbouring bins \cite{Yang2014}. \textbf{The merge is therefore rigorously exact only when pixel
-splitting is disabled}, or when the merged partitions do not share any pixel. With hybrid
-photon-counting detectors such as Eiger or Pilatus, whose point-spread function is about one pixel
-without correlation between neighbours, pixel splitting brings little and is best disabled for data
-meant to be merged, with bins at least as wide as a pixel.
+Equations~(\ref{eq:XXmerge}) and (\ref{eq:Cmerge}) are exact for the union of the contributions of $A$ and $B$.
+They reproduce a direct integration of $A\cup B$ only if no pixel contributes to both partitions.
+This is always the case for different frames or scan points.
+It is not the case when neighbouring bins of the same frame are merged, \emph{e.g.}\ azimuthal sectors into a 1D profile, while pixel splitting is enabled.
+A pixel split between $A$ and $B$ with the coefficients $c_{iA}$ and $c_{iB}$ then contributes $(c_{iA}^2+c_{iB}^2)\,n_i^2$ to $\OmS$, $\XX$ and $C$ instead of $(c_{iA}+c_{iB})^2\,n_i^2$, which underestimates the uncertainty.
+Pixel splitting also correlates neighbouring bins \cite{Yang2014}.
+\textbf{The merge is therefore rigorously exact only when pixel splitting is disabled}, or when the merged partitions do not share any pixel.
+With hybrid photon-counting detectors such as Eiger or Pilatus, whose point-spread function is about one pixel without correlation between neighbours, pixel splitting brings little and is best disabled for data meant to be merged, with bins at least as wide as a pixel.
 
 \subsection{Renormalization after integration}
 \label{sec:renorm}
 
-Since the signal and the normalization are accumulated separately, any correction factor $k$ that is
-constant over a frame can be applied after integration: the incoming flux measured by a beam-stop
-diode, the transmission, the exposure time, or the absolute solid-angle scale used when merging
-different geometries \cite{Kieffer2020}. Multiplying all $n_i$ by $k$ gives
+Since the signal and the normalization are accumulated separately, any correction factor $k$ that is constant over a frame can be applied after integration: the incoming flux measured by a beam-stop diode, the transmission, the exposure time, or the absolute solid-angle scale used when merging different geometries \cite{Kieffer2020}.
+Multiplying all $n_i$ by $k$ gives
 \begin{equation}
   \Om\to k\,\Om, \qquad \OmS\to k^2\,\OmS, \qquad C\to k\,C, \qquad X,\ \XX\ \text{unchanged},
   \label{eq:renorm}
 \end{equation}
-for both error models. Frames recorded with different monitors are thus renormalized, then merged
-with their proper weights. Corrections that vary from pixel to pixel within a bin, such as an updated
-flat-field \cite{Weng2023}, require a new integration of the raw data.
+for both error models.
+Frames recorded with different monitors are thus renormalized, then merged with their proper weights.
+Corrections that vary from pixel to pixel within a bin, such as an updated flat-field \cite{Weng2023}, require a new integration of the raw data.
 
 \subsection{Derived metrics for data-quality assessment}
 \label{sec:metrics}
@@ -251,40 +229,34 @@ flat-field \cite{Weng2023}, require a new integration of the raw data.
 \subsubsection{Spottiness}
 \label{spottiness}
 
-An ideal powder gives Debye--Scherrer rings of uniform intensity along the azimuth. Large crystallites,
-a small beam or a short exposure break the rings into spots, which the azimuthal error model measures
-directly. pyFAI defines a spottiness index as the quadratic mean, over the radial bins $r$, of the
-relative standard error of the mean:
+An ideal powder gives Debye--Scherrer rings of uniform intensity along the azimuth.
+Large crystallites, a small beam or a short exposure break the rings into spots, which the azimuthal error model measures directly.
+pyFAI defines a spottiness index as the quadratic mean, over the radial bins $r$, of the relative standard error of the mean:
 \begin{equation}
   S = \left(\frac{\sum_r w_r\,\left(\mathrm{sem}_r/\mean{x}_r\right)^2}{\sum_r w_r}\right)^{1/2}
     = \left(\frac{\sum_r w_r\,\XX_r/X_r^2}{\sum_r w_r}\right)^{1/2},
   \label{eq:spottiness}
 \end{equation}
-with $w_r=1$, or $w_r=\mean{x}_r$ to emphasize the Bragg peaks. It is inspired by the normalized
-r.m.s.\ intensity variation of \citeasnoun{Ingham2014}, which is a coefficient of variation,
-$\mathrm{std}/\mean{x}$. As $\mathrm{sem}=\mathrm{std}/\sqrt{N_\mathrm{eff}}$, $S$ also depends on the number
-of pixels per bin, hence on the binning, and it decreases as frames are merged: with independent
-frames, as $1/\sqrt{N}$. $S$ is therefore a measure of the quality of the integrated pattern, rather
-than of the sample alone. The coefficient of variation, $\sqrt{\XX_r/\OmS_r}\,\Om_r/X_r$, is available from
-the same accumulators when a measure independent of the binning is preferred. Both only depend on the
-accumulators and can be calculated after any merge.
+with $w_r=1$, or $w_r=\mean{x}_r$ to emphasize the Bragg peaks.
+It is inspired by the normalized r.m.s.\ intensity variation of \citeasnoun{Ingham2014}, which is a coefficient of variation, $\mathrm{std}/\mean{x}$.
+As $\mathrm{sem}=\mathrm{std}/\sqrt{N_\mathrm{eff}}$, $S$ also depends on the number of pixels per bin, hence on the binning, and it decreases as frames are merged: with independent frames, as $1/\sqrt{N}$.
+$S$ is therefore a measure of the quality of the integrated pattern, rather than of the sample alone.
+The coefficient of variation, $\sqrt{\XX_r/\OmS_r}\,\Om_r/X_r$, is available from the same accumulators when a measure independent of the binning is preferred.
+Both only depend on the accumulators and can be calculated after any merge.
 
 \subsubsection{Textures}
 \label{sec:texture}
 
-The absence of texture can be checked on the integrated data, using azimuthal sectors. Without
-texture, the intensities $I_j$ of the $M$ sectors of a radial bin agree within their standard errors,
-and
+The absence of texture can be checked on the integrated data, using azimuthal sectors.
+Without texture, the intensities $I_j$ of the $M$ sectors of a radial bin agree within their standard errors, and
 \begin{equation}
   \chi^2 = \sum_{j=1}^{M}\frac{\left(I_j-I\right)^2}{\mathrm{sem}_j^2},
   \label{eq:chi2}
 \end{equation}
-where $I$ is the intensity of the merged sectors, approximately follows a $\chi^2$ distribution with
-$M-1$ degrees of freedom. Once the absence of texture is established, frame by frame or after merging frames, the
-sectors are merged with equations~(\ref{eq:XXmerge}) and (\ref{eq:Cmerge}) into a 1D pattern. Both the
-test and this merge assume that pixel splitting is disabled (Section~\ref{sec:splitting}). Conversely,
-when texture is the signal of interest, the sectors are kept, and frames with similar orientations are
-merged sector by sector.
+where $I$ is the intensity of the merged sectors, approximately follows a $\chi^2$ distribution with $M-1$ degrees of freedom.
+Once the absence of texture is established, frame by frame or after merging frames, the sectors are merged with equations~(\ref{eq:XXmerge}) and (\ref{eq:Cmerge}) into a 1D pattern.
+Both the test and this merge assume that pixel splitting is disabled (Section~\ref{sec:splitting}).
+Conversely, when texture is the signal of interest, the sectors are kept, and frames with similar orientations are merged sector by sector.
 
 \section{Implementation and storage}
 \label{sec:implementation}
@@ -302,16 +274,13 @@ merged sector by sector.
 The BM29 beamline at the ESRF is an experimental end-station specialized in liquid small angle scattering of proteins or other biological macromolecules.
 The development described in this document are already integrated as part of the dahu pipelines running the online analysis of data of this beamline \cite{Kieffer2022}.
 \subsubsection{Meniscus detection}
-Bubbles in the capilary or a meniscus (not enough solution) lead to streaks in the scattering image which can easily be spotted by a sharp increase 
-in the level of spottiness (as calculated in \ref{spottiness}). 
+Bubbles in the capilary or a meniscus (not enough solution) lead to streaks in the scattering image which can easily be spotted by a sharp increase in the level of spottiness (as calculated in \ref{spottiness}).
 Such frames are automatically flaggued as dubious and excluded from any further analysis.
 \subsubsection{Frame averaging}
-Since the sample is assumed to be a liquid, thus the scattering pattern perfectly isotropic, the Poisson error-model is providing smoother 
-uncertainty-estimations.
+Since the sample is assumed to be a liquid, thus the scattering pattern perfectly isotropic, the Poisson error-model is providing smoother uncertainty-estimations.
 Frames are integrated with the accumulator values saved in the HDF5 file, which allows subsequent renormalization of signal (correction for the beam-stop diode noise).
 In sample-changer mode, those frames are compared for radiation damage and merged accordingly.
-In HPLC-mode, frames are compared to the first eigenvector of the SVD decomposition and subsequently merged using accumulators to provide a very good
-measurement of the buffer.
+In HPLC-mode, frames are compared to the first eigenvector of the SVD decomposition and subsequently merged using accumulators to provide a very good measurement of the buffer.
 
 % TODO figures: spottiness vs time with a bubble; uncertainty of the HPLC buffer, before/after.
 
@@ -342,46 +311,43 @@ A dataset of kevlar fibers which was collected at the ID13 beamline at ESRF was 
 \label{app:derivation}
 
 \citeasnoun{Schubert2018} prove their general merge formula through an identity derived backwards.
-With squared weights, a direct decomposition is simpler. Let $\delta_A=\mean{x}_A-\mean{x}_\AB$ be the
-shift of the mean of $A$ with respect to the mean of the union. Writing
-$x_i-\mean{x}_\AB=(x_i-\mean{x}_A)+\delta_A$,
+With squared weights, a direct decomposition is simpler.
+Let $\delta_A=\mean{x}_A-\mean{x}_\AB$ be the shift of the mean of $A$ with respect to the mean of the union.
+Writing $x_i-\mean{x}_\AB=(x_i-\mean{x}_A)+\delta_A$,
 \begin{equation}
   \sum_{i\in A}\omega_i^2\left(x_i-\mean{x}_\AB\right)^2 = \XX_A + 2\,\delta_A\,C_A + \OmS_A\,\delta_A^2 ,
   \qquad
   \sum_{i\in A}\omega_i^2\left(x_i-\mean{x}_\AB\right) = C_A + \OmS_A\,\delta_A .
 \end{equation}
-With the weights of \citeasnoun{Schubert2018}, the middle term vanishes since $C_A=0$. Adding the same
-expressions for $B$ gives
+With the weights of \citeasnoun{Schubert2018}, the middle term vanishes since $C_A=0$.
+Adding the same expressions for $B$ gives
 \begin{align}
   \XX_\AB &= \XX_A + \XX_B + \OmS_A\,\delta_A^2 + \OmS_B\,\delta_B^2 + 2\left(\delta_A\,C_A+\delta_B\,C_B\right),\\
   C_\AB  &= C_A + C_B + \OmS_A\,\delta_A + \OmS_B\,\delta_B .
 \end{align}
-From equation~(\ref{eq:additive}), $\delta_A=\Om_B\,\Delta x/\Om_\AB$ and $\delta_B=-\Om_A\,\Delta x/\Om_\AB$,
-which yields equations~(\ref{eq:XXmerge}) and (\ref{eq:Cmerge}). The same decomposition applied to the
-products $(v_i-\mean{v})(w_i-\mean{w})$ gives the merge of weighted covariances, with one accumulator
-$C$ per variable.
+From equation~(\ref{eq:additive}), $\delta_A=\Om_B\,\Delta x/\Om_\AB$ and $\delta_B=-\Om_A\,\Delta x/\Om_\AB$, which yields equations~(\ref{eq:XXmerge}) and (\ref{eq:Cmerge}).
+The same decomposition applied to the products $(v_i-\mean{v})(w_i-\mean{w})$ gives the merge of weighted covariances, with one accumulator $C$ per variable.
 
-\paragraph{Form using sums.} As pyFAI stores sums rather than means,
-$\Delta x=(\Om_B X_A-\Om_A X_B)/(\Om_A\Om_B)$ is used in equations~(\ref{eq:XXmerge}) and
-(\ref{eq:Cmerge}), so that the divisions come last \cite{Schubert2018}.
+\paragraph{Form using sums.}
+As pyFAI stores sums rather than means, $\Delta x=(\Om_B X_A-\Om_A X_B)/(\Om_A\Om_B)$ is used in equations~(\ref{eq:XXmerge}) and (\ref{eq:Cmerge}), so that the divisions come last \cite{Schubert2018}.
 
-\paragraph{Single pixel.} For $B=\{b\}$, with $\Om_b=\omega_b$, $\OmS_b=\omega_b^2$, $\XX_b=C_b=0$ and
-$X_A-\Om_A x_b = \Om_A\,\Delta x$, the update reads
+\paragraph{Single pixel.}
+For $B=\{b\}$, with $\Om_b=\omega_b$, $\OmS_b=\omega_b^2$, $\XX_b=C_b=0$ and $X_A-\Om_A x_b = \Om_A\,\Delta x$, the update reads
 \begin{align}
   \XX_\Ab &= \XX_A + \omega_b^2\,\frac{\OmS_A+\Om_A^2}{\Om_A^2\,\Om_\Ab^2}\left(X_A-\Om_A x_b\right)^2
             + 2\,\omega_b\,\frac{C_A}{\Om_A\,\Om_\Ab}\left(X_A-\Om_A x_b\right), \\
   C_\Ab  &= C_A + \omega_b\,\frac{\OmS_A-\omega_b\,\Om_A}{\Om_A\,\Om_\Ab}\left(X_A-\Om_A x_b\right),
 \end{align}
-the analogue of the update of \citeasnoun{Youngs1971}. The update used so far, equation~(17) of
-\citeasnoun{Kieffer2025}, is the update of \citeasnoun{Welford1962} with $\omega_b^2$ in place of
-$\omega_b$. It misses the factor $(\OmS_A+\Om_A^2)/(\Om_A\,\Om_\Ab)$ and the term in $C_A$, which both
-vanish when all weights are equal. This explains why it is accurate for nearly uniform weights.
+the analogue of the update of \citeasnoun{Youngs1971}.
+The update used so far, equation~(17) of \citeasnoun{Kieffer2025}, is the update of \citeasnoun{Welford1962} with $\omega_b^2$ in place of $\omega_b$.
+It misses the factor $(\OmS_A+\Om_A^2)/(\Om_A\,\Om_\Ab)$ and the term in $C_A$, which both vanish when all weights are equal.
+This explains why it is accurate for nearly uniform weights.
 
-\paragraph{$C$ cannot be avoided.} Consider the partitions, given as pairs $(\omega_i, x_i)$,
-$A_1=\{(1,0),(1,2),(2,3)\}$ and $A_2=\{(1,0),(1,4),(2,2)\}$. Both have $\Om=4$, $\OmS=6$, $X=8$ and
-$\XX=8$, but $C_{A_1}=2$ and $C_{A_2}=0$. Merged with the single pixel $B=\{(1,0)\}$, they give
-$\XX=13.12$ and $\XX=11.52$ respectively, as given by equation~(\ref{eq:XXmerge}) and by a direct
-calculation. No function of $(\Om,\OmS,X,\XX)$ alone can produce both values.
+\paragraph{$C$ cannot be avoided.}
+Consider the partitions, given as pairs $(\omega_i, x_i)$, $A_1=\{(1,0),(1,2),(2,3)\}$ and $A_2=\{(1,0),(1,4),(2,2)\}$.
+Both have $\Om=4$, $\OmS=6$, $X=8$ and $\XX=8$, but $C_{A_1}=2$ and $C_{A_2}=0$.
+Merged with the single pixel $B=\{(1,0)\}$, they give $\XX=13.12$ and $\XX=11.52$ respectively, as given by equation~(\ref{eq:XXmerge}) and by a direct calculation.
+No function of $(\Om,\OmS,X,\XX)$ alone can produce both values.
 
 \begin{acknowledgements}
 The contributions of non-authors etc. should be given here.
@@ -401,5 +367,5 @@ List funding organizations, recipients, grant numbers, etc.
 \bibliography{accumulator} % basename of .bib file
 
 
-\end{document}                    
+\end{document}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
