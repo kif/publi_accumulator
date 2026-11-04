@@ -1,6 +1,6 @@
 % Bibliography for the accumulator manuscript (J. Appl. Cryst.), to be used with iucr.bst.
 % Entries whose comment names a PDF of library/ were checked against that PDF; the others were
-% written from memory and are marked "TO VERIFY".
+% written from memory and then checked against Crossref (2026-11-04).
 % iucr.bst prints neither article titles nor DOIs; both are kept for the editors and for
 % a possible change of style.
 
@@ -139,7 +139,8 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 % library/3221269.3223036.pdf
-% The author copy prints "12 pages" but no article number: "Article 10" is TO VERIFY on the ACM DL.
+% The author copy prints "12 pages" but no article number; Crossref gives pages 1-12, the ACM
+% reference format "Article 10, 10:1--10:12" (checked on the web, ACM DL itself not reachable).
 @inproceedings{Schubert2018,
   author    = {Schubert, E. and Gertz, M.},
   title     = {Numerically stable parallel computation of (co-)variance},
@@ -172,23 +173,26 @@
   doi     = {10.1080/00401706.1971.10488826}
 }
 
-% TO VERIFY. Pairwise (tree) combination of partial variances; cited by Schubert & Gertz (2018).
+% Checked on Crossref. Pairwise (tree) combination of partial variances; cited by Schubert & Gertz (2018).
 @article{Chan1983,
   author  = {Chan, T. F. and Golub, G. H. and LeVeque, R. J.},
   title   = {Algorithms for computing the sample variance: analysis and recommendations},
   journal = {Am. Stat.},
   volume  = {37},
+  number  = {3},
   pages   = {242--247},
   year    = {1983},
   doi     = {10.1080/00031305.1983.10483115}
 }
 
-% TO VERIFY. Compensated summation, used in the OpenCL kernels (Kieffer & Wright, 2013).
+% library/363707.363723.pdf (Commun. ACM 8(1), p. 40, "Pracniques" column; checked).
+% Compensated summation, used in the OpenCL kernels (Kieffer & Wright, 2013).
 @article{Kahan1965,
   author  = {Kahan, W.},
-  title   = {Pracniques: further remarks on reducing truncation errors},
+  title   = {Further remarks on reducing truncation errors},
   journal = {Commun. ACM},
   volume  = {8},
+  number  = {1},
   pages   = {40},
   year    = {1965},
   doi     = {10.1145/363707.363723}
@@ -235,7 +239,7 @@
   doi     = {10.1107/S1600576714010516}
 }
 
-% TO VERIFY. Open data / re-interpretation argument; cited in Kieffer et al. (2020).
+% library/sdata201618.pdf (checked). Open data / re-interpretation argument; cited in Kieffer et al. (2020).
 @article{Wilkinson2016,
   author  = {Wilkinson, M. D. and others},
   title   = {The {FAIR} Guiding Principles for scientific data management and stewardship},
@@ -250,7 +254,8 @@
 % Storage formats
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-% library/1503.00638.pdf (arXiv preprint, authors checked; journal, volume and pages TO VERIFY).
+% library/1503.00638.pdf (arXiv preprint, authors checked; journal, volume and pages checked on
+% Crossref, which abbreviates J. Mena Parra as "Parra, J.M.").
 % Bitshuffle-LZ4, the compression of the raw Eiger data in the storage estimate.
 @article{Masui2015,
   author  = {Masui, K. and Amiri, M. and Connor, L. and Deng, M. and Fandino, M. and H{\"o}fer, C.
@@ -264,7 +269,7 @@
   doi     = {10.1016/j.ascom.2015.07.002}
 }
 
-% TO VERIFY. NeXus format, for storing the accumulators.
+% library/po5029.pdf (checked, 17 authors). NeXus format, for storing the accumulators.
 @article{Koennecke2015,
   author  = {K{\"o}nnecke, M. and Akeroyd, F. A. and Bernstein, H. J. and Brewster, A. S.
              and Campbell, S. I. and Clausen, B. and Cottrell, S. and Hoffmann, J. U.
@@ -294,10 +299,12 @@
   doi     = {10.1107/S1600576713029713}
 }
 
-% TO VERIFY. Structure of Kevlar fibres.
+% library/1-s2.0-0014305774901311-main.pdf (checked). Structure of Kevlar fibres: monoclinic
+% (pseudo-orthorhombic) cell a = 7.87, b = 5.18, c (fibre axis) = 12.9 A, Pn or P2_1/n;
+% (110) and (200) are the two very strong equatorial reflections (d = 4.33 and 3.94 A).
 @article{Northolt1974,
   author  = {Northolt, M. G.},
-  title   = {X-ray diffraction study of poly(p-phenylene terephthalamide) fibres},
+  title   = {{X}-ray diffraction study of poly(p-phenylene terephthalamide) fibres},
   journal = {Eur. Polym. J.},
   volume  = {10},
   pages   = {799--804},

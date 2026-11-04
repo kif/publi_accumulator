@@ -269,18 +269,21 @@ Conversely, when texture is the signal of interest, the sectors are kept, and fr
 \section{Applications}
 \label{sec:applications}
 
-\subsection{Saxs}
+\subsection{Small-angle scattering of macromolecules in solution}
 \label{sec:saxs}
-The BM29 beamline at the ESRF is an experimental end-station specialized in liquid small angle scattering of proteins or other biological macromolecules.
-The development described in this document are already integrated as part of the dahu pipelines running the online analysis of data of this beamline \cite{Kieffer2022}.
-\subsubsection{Meniscus detection}
-Bubbles in the capilary or a meniscus (not enough solution) lead to streaks in the scattering image which can easily be spotted by a sharp increase in the level of spottiness (as calculated in \ref{spottiness}).
-Such frames are automatically flaggued as dubious and excluded from any further analysis.
+BM29 is the BioSAXS beamline of the ESRF, dedicated to small-angle scattering of proteins and other biological macromolecules in solution.
+Its data are reduced online by the Dahu pipelines \cite{Kieffer2022}, in which the developments described here are already integrated.
+
+\subsubsection{Detection of bubbles and menisci}
+Bubbles in the capillary, or a meniscus when the volume of solution is insufficient, produce streaks on the scattering images.
+These streaks are easily spotted as a sharp increase of the spottiness (Section~\ref{spottiness}).
+The corresponding frames are automatically flagged as dubious and excluded from further analysis.
+
 \subsubsection{Frame averaging}
-Since the sample is assumed to be a liquid, thus the scattering pattern perfectly isotropic, the Poisson error-model is providing smoother uncertainty-estimations.
-Frames are integrated with the accumulator values saved in the HDF5 file, which allows subsequent renormalization of signal (correction for the beam-stop diode noise).
-In sample-changer mode, those frames are compared for radiation damage and merged accordingly.
-In HPLC-mode, frames are compared to the first eigenvector of the SVD decomposition and subsequently merged using accumulators to provide a very good measurement of the buffer.
+Since the sample is a liquid, its scattering is assumed to be isotropic, and the Poisson error model is used because it provides smoother uncertainty estimates.
+The accumulators of each frame are saved in the HDF5 file, which allows the signal to be renormalized afterwards, \emph{e.g.}\ to correct for the noise of the beam-stop diode (Section~\ref{sec:renorm}).
+In sample-changer mode, the frames are compared to detect radiation damage, and only equivalent frames are merged.
+In HPLC mode, the frames are compared with the first singular vector of the singular value decomposition (SVD) of the chromatogram, and those most similar to it are merged using their accumulators to provide a very precise measurement of the buffer, whereas \citeasnoun{Kieffer2022} had to average the integrated curves.
 
 % TODO figures: spottiness vs time with a bubble; uncertainty of the HPLC buffer, before/after.
 
